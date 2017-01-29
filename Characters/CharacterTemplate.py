@@ -2,7 +2,8 @@
 Author: Selezar
 MapleChar character animation and main class
 
-TODO: FIX OFFSETS ON PHANTOM BLOW 
+TODO: IMPLEMENT HORIZONTAL COLLISION DETECTION FOR PLATFORMS
+
 '''
 
 import pygame
@@ -34,7 +35,7 @@ class MapleChar(pygame.sprite.Sprite):
 
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
-        self.rect.topleft = self.Current_X_position, self.Current_Y_position
+        self.rect.center = self.Current_X_position, self.Current_Y_position
 
         self.Current_Animation = 'Idle'
 
@@ -42,7 +43,7 @@ class MapleChar(pygame.sprite.Sprite):
 
         self.Jump_Bool = False
 
-        #Button pressed booleans
+    #Button pressed booleans
         self.Is_Jump_Button_Pressed_Bool = False
         self.Is_Right_Button_Pressed_Bool = False
         self.Is_Left_Button_Pressed_Bool = False
@@ -52,8 +53,8 @@ class MapleChar(pygame.sprite.Sprite):
         self.JumpCount = None
         self.steps_above_ground = None
 
-        self.jump_sound = load_sound('jump.wav' , 'Jump')
-        self.sword_sound = load_sound('sword.wav', 'UpperAttack')
+        #self.jump_sound = load_sound('jump.wav' , 'Jump')
+        #self.sword_sound = load_sound('sword.wav', 'UpperAttack')
 
         self.Bool_Check_If_Under_base = self.Base_Y_position-self.Current_Y_position
 
@@ -99,21 +100,49 @@ class MapleChar(pygame.sprite.Sprite):
 
     #Jump gravity and strength stuff
         '''jump gravity stuff'''
-        self.Jump_Gravity = 14          #the gravity
-        self.JumpFactor = 10            #How high the jump is
-        self.Jump_x_translation = 9    #how much left and right the jump moves the character
+        self.Jump_Gravity = 22 #14          #the gravity or how fast the character falls back to the ground
+        self.JumpFactor = 11        #How high the jump is
+        self.Jump_x_translation = 12    #how much left and right the jump moves the character
 
+        '''do NOT touch THESE'''
         self.e = 0
         self.k = (self.Jump_Gravity/2)+1
 
         self.a = (self.Jump_Gravity/2)
         self.b = self.Jump_Gravity+1
 
-        
+    #Collision stuff
 
-    def update(self):
+        self.Vert_Collision_Bool = False  
+
+
+
+    def update(self, Vertical_Walls_Sprite_Group, Platform_Sprite_Group, Platform_Ghost_Sprite_Group):
         '''call the frames of each chosen animation one after another here'''
-        
+
+        #print (self.Platform_Base_List)
+        #print ('Current y: '+str(self.Current_Y_position))
+        #print ('Base: '+str(self.Base_Y_position))
+        #print (self.Current_Animation)
+
+    #Update collision    
+        '''environment wall collision grouped sprite checking section'''
+        vertical_wall_collision_list = pygame.sprite.spritecollide(self, Vertical_Walls_Sprite_Group, False, pygame.sprite.collide_rect_ratio(0.8))
+        platform_collision_list = pygame.sprite.spritecollide(self, Platform_Sprite_Group, False, pygame.sprite.collide_rect_ratio(1))
+        platform_ghost_collision_list = pygame.sprite.spritecollide(self, Platform_Ghost_Sprite_Group, False, pygame.sprite.collide_rect_ratio(0.95))
+
+        for platform in platform_ghost_collision_list:
+            offset_platform_y = platform.rect.bottom - 22
+            self.Change_Current_Y_Base(offset_platform_y)
+
+    #collision for walls     
+        if len(vertical_wall_collision_list)!=0:
+            self.Vert_Collision_Bool = True
+        else:
+            self.Vert_Collision_Bool = False
+
+    #Animations
+
         if self.Current_Animation=='Idle':
 
             self.Jump_Bool = False
@@ -127,9 +156,7 @@ class MapleChar(pygame.sprite.Sprite):
             if self.Current_Faced_Side=='Right':
                 self.image = pygame.transform.flip(self.image, 1, 0)
 
-            screen = pygame.display.get_surface()
-            self.area = screen.get_rect()
-            self.rect.topleft = self.Current_X_position, self.Current_Y_position
+            self.rect.center = self.Current_X_position, self.Current_Y_position
 
             if len(self.Checking_List_Idle)==self.Idle_Scalar:
                 '''independant fps setter'''
@@ -159,7 +186,7 @@ class MapleChar(pygame.sprite.Sprite):
 
             screen = pygame.display.get_surface()
             self.area = screen.get_rect()
-            self.rect.topleft = self.Current_X_position, self.Current_Y_position
+            self.rect.center = self.Current_X_position, self.Current_Y_position
 
             if len(self.Checking_List_Idle)==self.Idle_Scalar:
                 '''independant fps setter'''
@@ -174,74 +201,177 @@ class MapleChar(pygame.sprite.Sprite):
 
         elif self.Current_Animation=='Walk_Right':
 
-            if self.count==4:
-                self.count = 0
+            if len(platform_collision_list)!=0:
 
-            self.Jump_Bool = False
+                if self.Is_Right_Button_Pressed_Bool==False:
+                    self.Current_Animation='Idle'
 
-            self.Checking_List_Walk.append(self.count)
+                if self.count==4:
+                    self.count = 0
 
-            self.Current_X_position+=12 
-            FileName = 'walk1_' + str(self.count) + '.png'
-            self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
+                self.Jump_Bool = False
 
-            #Need to flip the left walking images
-            self.image = pygame.transform.flip(self.image, 1, 0)
+                self.Checking_List_Walk.append(self.count)
 
-            screen = pygame.display.get_surface()
-            self.area = screen.get_rect()
+                if self.Vert_Collision_Bool==False:
+                    self.Current_X_position+=12 
+                elif self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Right':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=12
 
-            if self.Current_X_position<1650:
-                '''checking to see that the character is on the far right'''
-                self.rect = self.Current_X_position, self.Current_Y_position
+                FileName = 'walk1_' + str(self.count) + '.png'
+                self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
+                #print (self.rect)
+
+                #Need to flip the left walking images
+                self.image = pygame.transform.flip(self.image, 1, 0)
+
+                screen = pygame.display.get_surface()
+                self.area = screen.get_rect()
+
+                if self.Current_X_position<1650:
+                    '''checking to see that the character is on the far right'''
+
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
+                    #print (self.rect)
+                else:
+                    self.Current_X_position = 1650
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
+                    #print (self.rect)
+
+                if len(self.Checking_List_Walk)==self.Walk_Scalar:
+                    self.count+=1
+                    self.Checking_List_Walk = []
+                else:
+                    self.count+=0
+
+                self.Current_Faced_Side = 'Right'
+
+                if self.count==4:
+                    self.count=0
+
             else:
-                self.Current_X_position = 1650
-                self.rect = self.Current_X_position, self.Current_Y_position
+                '''this means the character has walked past the edge of a ledge and must hence be floated down'''
+                if self.count==4:
+                    self.count = 0
 
-            if len(self.Checking_List_Walk)==self.Walk_Scalar:
-                self.count+=1
-                self.Checking_List_Walk = []
-            else:
-                self.count+=0
+                self.Jump_Bool = False
 
-            self.Current_Faced_Side = 'Right'
+                self.Checking_List_Walk.append(self.count)
 
-            if self.count==4:
-                self.count=0
+                if self.Vert_Collision_Bool==False:
+                    self.Current_X_position+=12 
+                elif self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Right':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=12
+
+                self.Current_Y_position+=10
+                FileName = 'walk1_' + str(self.count) + '.png'
+                self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
+                #print (self.rect)
+
+                #Need to flip the left walking images
+                self.image = pygame.transform.flip(self.image, 1, 0)
+
+                screen = pygame.display.get_surface()
+                self.area = screen.get_rect()
+
+                if self.Current_X_position<1650:
+                    '''checking to see that the character is on the far right'''
+
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
+                    #print (self.rect)
+                else:
+                    self.Current_X_position = 1650
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
+                    #print (self.rect)
+
+                if len(self.Checking_List_Walk)==self.Walk_Scalar:
+                    self.count+=1
+                    self.Checking_List_Walk = []
+                else:
+                    self.count+=0
+
+                self.Current_Faced_Side = 'Right'
+
+                if self.count==4:
+                    self.count=0
+
 
         elif self.Current_Animation=='Walk_Left':
 
-            if self.count==4:
-                self.count = 0
+            if len(platform_collision_list)!=0:
+                '''this if and else statement is for when the character keeps walking off a platform off the ledge. So that it should be let down into the
+                lower platform'''
 
-            self.Jump_Bool = False
+                if self.Is_Left_Button_Pressed_Bool==False:
+                    self.Reset_Y_Position_To_Base()
+                    self.Current_Animation = 'Idle'
 
-            self.Checking_List_Walk.append(self.count)
+                if self.count==4:
+                    self.count = 0
 
-            self.Current_X_position+=-12 
-            FileName = 'walk1_' + str(self.count) + '.png'
-            self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
+                self.Jump_Bool = False
 
-            screen = pygame.display.get_surface()
-            self.area = screen.get_rect()
+                self.Checking_List_Walk.append(self.count)
 
-            if self.Current_X_position>-70:
-                '''checking to see that the character is on the far left'''
-                self.rect = self.Current_X_position, self.Current_Y_position
+                if self.Vert_Collision_Bool==False:
+                    self.Current_X_position+=-12 
+                elif self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Left':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=-12
+
+                FileName = 'walk1_' + str(self.count) + '.png'
+                self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
+
+                self.rect.center = self.Current_X_position, self.Current_Y_position
+
+                if len(self.Checking_List_Walk)==self.Walk_Scalar:
+                    self.count+=1
+                    self.Checking_List_Walk = []
+                else:
+                    self.count+=0
+
+                self.Current_Faced_Side = 'Left'
+
+                if self.count==4:
+                    self.count=0
+
             else:
-                self.Current_X_position = -70
-                self.rect = self.Current_X_position, self.Current_Y_position
+                '''this means the character has walked past the edge of a ledge and must hence be floated down'''
+                if self.count==4:
+                    self.count = 0
 
-            if len(self.Checking_List_Walk)==self.Walk_Scalar:
-                self.count+=1
-                self.Checking_List_Walk = []
-            else:
-                self.count+=0
+                self.Jump_Bool = False
 
-            self.Current_Faced_Side = 'Left'
+                self.Checking_List_Walk.append(self.count)
 
-            if self.count==4:
-                self.count=0
+                if self.Vert_Collision_Bool==False:
+                    self.Current_X_position+=-12 
+                elif self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Left':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=-12
+
+                self.Current_Y_position+=10
+                FileName = 'walk1_' + str(self.count) + '.png'
+                self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
+
+                self.rect.center = self.Current_X_position, self.Current_Y_position
+
+                if len(self.Checking_List_Walk)==self.Walk_Scalar:
+                    self.count+=1
+                    self.Checking_List_Walk = []
+                else:
+                    self.count+=0
+
+                self.Current_Faced_Side = 'Left'
+
+                if self.count==4:
+                    self.count=0
 
         elif self.Current_Animation=='Crouch':
 
@@ -253,6 +383,9 @@ class MapleChar(pygame.sprite.Sprite):
             FileName =  'prone_' + str(self.count) + '.png'
             self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
 
+            '''y must be offset a bit'''
+            self.Current_Y_position+=-11
+
             if self.Current_Faced_Side=='Right':
                 '''x must be offset by a bit'''
                 self.image = pygame.transform.flip(self.image, 1, 0)
@@ -261,7 +394,7 @@ class MapleChar(pygame.sprite.Sprite):
 
                 screen = pygame.display.get_surface()
                 self.area = screen.get_rect()
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.Current_X_position+=-7
 
@@ -271,7 +404,7 @@ class MapleChar(pygame.sprite.Sprite):
 
                 screen = pygame.display.get_surface()
                 self.area = screen.get_rect()
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.Current_X_position+=20
 
@@ -292,10 +425,10 @@ class MapleChar(pygame.sprite.Sprite):
 
             if self.Current_Faced_Side=='Right':
                 self.image = pygame.transform.flip(self.image, 1, 0)
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
             else:
                 self.Current_X_position+=-6
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
                 self.Current_X_position+=6
             
 
@@ -327,10 +460,10 @@ class MapleChar(pygame.sprite.Sprite):
 
             if self.Current_Faced_Side=='Right':
                 self.image = pygame.transform.flip(self.image, 1, 0)
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
             else:
                 self.Current_X_position+=-6
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
                 self.Current_X_position+=6
 
             if len(self.Checking_List_UpperStab2)==self.UpperStab2_Scaler:
@@ -359,11 +492,11 @@ class MapleChar(pygame.sprite.Sprite):
 
             if self.Current_Faced_Side=='Right':
                 self.image = pygame.transform.flip(self.image, 1, 0)
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
             else:
                 self.Current_X_position+=-26
                 self.Current_Y_position+=1
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
                 self.Current_X_position+=26
                 self.Current_Y_position+=-1
 
@@ -384,7 +517,9 @@ class MapleChar(pygame.sprite.Sprite):
                 self.Current_Y_position+=-self.JumpFactor
 
             elif self.count>self.a and self.count<self.b:
-                self.Current_Y_position+=self.JumpFactor
+                '''check to see if the character is on base or not, then if not let it down'''
+                if self.Current_Y_position!=self.Base_Y_position:
+                    self.Current_Y_position+=self.JumpFactor
 
             self.image, self.rect = self.jump_cache_list[1]
 
@@ -394,7 +529,7 @@ class MapleChar(pygame.sprite.Sprite):
 
                 screen = pygame.display.get_surface()
                 self.area = screen.get_rect()
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.count+=1
 
@@ -403,13 +538,13 @@ class MapleChar(pygame.sprite.Sprite):
                 if self.count>self.Jump_Gravity:
                     self.count=1
                     self.Reset_Y_Position_To_Base()
-                    self.jump_sound.play()
+                    #self.jump_sound.play()
 
             elif self.Current_Faced_Side=='Left':
 
                 screen = pygame.display.get_surface()
                 self.area = screen.get_rect()
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.count+=1
 
@@ -418,8 +553,11 @@ class MapleChar(pygame.sprite.Sprite):
                 if self.count>self.Jump_Gravity:
                     self.count=1
                     self.Reset_Y_Position_To_Base()
-                    self.jump_sound.play()
-                    
+                    #self.jump_sound.play()
+             
+            if self.Current_Y_position==self.Base_Y_position:
+                self.Current_Animation='Idle'
+
         elif self.Current_Animation=='PrematureJumpEnding':
             '''
             this section is to animate when the sprite does not jump or carry out full animation
@@ -447,7 +585,7 @@ class MapleChar(pygame.sprite.Sprite):
 
                 screen = pygame.display.get_surface()
                 self.area = screen.get_rect()
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
 
 
             self.Distance_Above_Ground = abs(self.Current_Y_position-self.Base_Y_position)
@@ -471,11 +609,22 @@ class MapleChar(pygame.sprite.Sprite):
 
             if self.count>self.e and self.count<self.k:
                 self.Current_Y_position+=-self.JumpFactor
-                self.Current_X_position+=-self.Jump_x_translation
+                '''Collision detection section. If collision is true then no x motion. If false then move the sprite through x'''
+                if self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Left':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=-self.Jump_x_translation
 
             elif self.count>self.a and self.count<self.b:
-                self.Current_Y_position+=self.JumpFactor
-                self.Current_X_position+=-self.Jump_x_translation
+                '''check to see if the character is already on the ground. If not then let it down a step'''
+                if self.Current_Y_position!=self.Base_Y_position:
+                    self.Current_Y_position+=self.JumpFactor
+
+                '''Collision detection section. If collision is true then no x motion. If false then move the sprite through x'''
+                if self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Left':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=-self.Jump_x_translation
 
             self.image, self.rect = self.jump_cache_list[1]
 
@@ -487,11 +636,11 @@ class MapleChar(pygame.sprite.Sprite):
                 self.area = screen.get_rect()
 
                 if self.Current_X_position>-70:
-                    '''these will stop the character from jumping off of 70 pixels left'''
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    '''these will scenter the character from jumping off of 70 pixels left'''
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
                 else:
                     self.Current_X_position = -70
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.count+=1
 
@@ -499,8 +648,8 @@ class MapleChar(pygame.sprite.Sprite):
 
                 if self.count>self.Jump_Gravity:
                     self.count=1
-                    self.Reset_Y_Position_To_Base()
-                    self.jump_sound.play()
+                    #self.Reset_Y_Position_To_Base()
+                    #self.jump_sound.play()
 
             elif self.Current_Faced_Side=='Left':
 
@@ -508,11 +657,11 @@ class MapleChar(pygame.sprite.Sprite):
                 self.area = screen.get_rect()
 
                 if self.Current_X_position>-70:         
-                    '''these will stop the character from jumping off of 70 pixels left'''
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    '''these will scenter the character from jumping off of 70 pixels left'''
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
                 else:
                     self.Current_X_position = -70
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.count+=1
 
@@ -520,9 +669,8 @@ class MapleChar(pygame.sprite.Sprite):
 
                 if self.count>self.Jump_Gravity:
                     self.count=1
-                    self.Reset_Y_Position_To_Base()
-                    print ('reset to base on jump left func')
-                    self.jump_sound.play()
+                    #self.Reset_Y_Position_To_Base()
+                    #self.jump_sound.play()
 
         elif self.Current_Animation=='PrematureJumpEndingLeft':
             '''
@@ -544,7 +692,11 @@ class MapleChar(pygame.sprite.Sprite):
                 self.Jump_Bool=False
 
                 self.Current_Y_position+=self.JumpFactor
-                self.Current_X_position+=-self.Jump_x_translation
+                '''Collision detection section. If collision is true then no x motion. If false then move the sprite through x'''
+                if self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Left':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=-self.Jump_x_translation
 
                 self.image, self.rect = self.jump_cache_list[1]
 
@@ -554,7 +706,7 @@ class MapleChar(pygame.sprite.Sprite):
 
                 screen = pygame.display.get_surface()
                 self.area = screen.get_rect()
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.Distance_Above_Ground = abs(self.Current_Y_position-self.Base_Y_position)
                 print ('Distance above ground: '+str(self.Distance_Above_Ground))
@@ -587,11 +739,21 @@ class MapleChar(pygame.sprite.Sprite):
 
             if self.count>self.e and self.count<self.k:
                 self.Current_Y_position+=-self.JumpFactor
-                self.Current_X_position+=self.Jump_x_translation
+                '''Collision detection section. If collision is true then no x motion. If false then move the sprite through x'''
+                if self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Right':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=self.Jump_x_translation
 
             elif self.count>self.a and self.count<self.b:
-                self.Current_Y_position+=self.JumpFactor
-                self.Current_X_position+=self.Jump_x_translation
+                '''check to see of character is already on the ground. If not then let it down one step'''
+                if self.Current_Y_position!=self.Base_Y_position:
+                    self.Current_Y_position+=self.JumpFactor
+                '''Collision detection section. If collision is true then no x motion. If false then move the sprite through x'''
+                if self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Right':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=self.Jump_x_translation
 
             self.image, self.rect = self.jump_cache_list[1]
 
@@ -604,10 +766,10 @@ class MapleChar(pygame.sprite.Sprite):
 
                 if self.Current_X_position<1650:
                     '''making sure character desnt jump off screen to the right'''
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
                 else:
                     self.Current_X_position = 1650
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.count+=1
 
@@ -615,8 +777,8 @@ class MapleChar(pygame.sprite.Sprite):
 
                 if self.count>self.Jump_Gravity:
                     self.count=1
-                    self.Reset_Y_Position_To_Base()
-                    self.jump_sound.play()
+                    #self.Reset_Y_Position_To_Base()
+                    #self.jump_sound.play()
 
             elif self.Current_Faced_Side=='Left':
 
@@ -625,10 +787,10 @@ class MapleChar(pygame.sprite.Sprite):
 
                 if self.Current_X_position<1650:
                     '''making sure character desnt jump off screen to the right'''
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
                 else:
                     self.Current_X_position = 1650
-                    self.rect = self.Current_X_position, self.Current_Y_position
+                    self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.count+=1
 
@@ -636,8 +798,8 @@ class MapleChar(pygame.sprite.Sprite):
 
                 if self.count>self.Jump_Gravity:
                     self.count=1
-                    self.Reset_Y_Position_To_Base()
-                    self.jump_sound.play()
+                    #self.Reset_Y_Position_To_Base()
+                    #self.jump_sound.play()
 
         elif self.Current_Animation=='PrematureJumpEndingRight':
             '''
@@ -657,7 +819,11 @@ class MapleChar(pygame.sprite.Sprite):
                 self.Jump_Bool=False
 
                 self.Current_Y_position+=self.JumpFactor
-                self.Current_X_position+=self.Jump_x_translation
+                '''Collision detection section. If collision is true then no x motion. If false then move the sprite through x'''
+                if self.Vert_Collision_Bool==True and self.Current_Faced_Side=='Right':
+                    self.Current_X_position+=0
+                else:
+                    self.Current_X_position+=self.Jump_x_translation
 
                 self.image, self.rect = self.jump_cache_list[1]
 
@@ -667,7 +833,7 @@ class MapleChar(pygame.sprite.Sprite):
 
                 screen = pygame.display.get_surface()
                 self.area = screen.get_rect()
-                self.rect.topleft = self.Current_X_position, self.Current_Y_position
+                self.rect.center = self.Current_X_position, self.Current_Y_position
 
                 self.Distance_Above_Ground = abs(self.Current_Y_position-self.Base_Y_position)
                 print ('Distance above ground: '+str(self.Distance_Above_Ground))
@@ -706,9 +872,9 @@ class MapleChar(pygame.sprite.Sprite):
             if self.Current_Faced_Side=='Right':
                 self.image = pygame.transform.flip(self.image, 1, 0)
 
-            screen = pygame.display.get_surface()
-            self.area = screen.get_rect()
-            self.rect.topleft = self.Current_X_position, self.Current_Y_position
+            self.Current_Y_position+=3
+            self.rect.center = self.Current_X_position, self.Current_Y_position
+            self.Current_Y_position+=-3
 
             if len(self.Checking_List_Alert)==self.Alert_Scalar:
                 '''independant fps setter'''
@@ -727,6 +893,52 @@ class MapleChar(pygame.sprite.Sprite):
                 else:
                     self.Current_Animation = 'Alert'
 
+        elif self.Current_Animation=='WalkSameSpot':
+
+            if self.count==4:
+                self.count = 0
+
+            self.Jump_Bool = False
+
+            self.Checking_List_Walk.append(self.count)
+
+            self.Current_X_position+=0
+
+            FileName = 'walk1_' + str(self.count) + '.png'
+            self.image, self.rect = load_sprite_image(FileName, 'MapleSprites', self.name, 'blink', 'frame 0')
+
+            #Need to flip the left walking images
+            if self.Current_Faced_Side=='Right':
+                self.image = pygame.transform.flip(self.image, 1, 0)
+
+            screen = pygame.display.get_surface()
+            self.area = screen.get_rect()
+
+            self.rect.center = self.Current_X_position, self.Current_Y_position
+
+            if len(self.Checking_List_Walk)==self.Walk_Scalar:
+                self.count+=1
+                self.Checking_List_Walk = []
+            else:
+                self.count+=0
+
+            if self.count==4:
+                self.count=0        
+
+        elif self.Current_Animation=='DropFromPlatform':
+            '''this is when character gets to end of ledge and has to drop down to the lower ledge'''
+
+            self.Jump_Bool = False
+
+            self.image, self.rect = self.jump_cache_list[1]
+            
+            if len(platform_ghost_collision_list)==0:
+                self.Current_Y_position+=10
+                self.Current_X_position+=-3
+
+                self.rect.center = self.Current_X_position, self.Current_Y_position
+            else:
+                self.Current_Animation = 'Idle'
 
 
     def Update_Animation(self, anim):
@@ -788,7 +1000,11 @@ class MapleChar(pygame.sprite.Sprite):
 
     def Fetch_State_of_Jump_Button(self):
         '''returns bool whether the jump button is pressed or not'''
-        return self.Is_Jump_Button_Pressed
+        return self.Is_Jump_Button_Pressed_Bool
+
+    def Change_Current_Y_Base(self, val):
+        '''this will change the current base y position to the arg supplied'''
+        self.Base_Y_position = val
 
 class SelezarPotrait(pygame.sprite.Sprite):
     """generates a potrait of Selezar"""
@@ -809,7 +1025,7 @@ class SelezarPotrait(pygame.sprite.Sprite):
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
 
-        self.rect.topleft = self.Current_X_position, self.Current_Y_position
+        self.rect.center = self.Current_X_position, self.Current_Y_position
 
     def update(self):
 
@@ -830,7 +1046,7 @@ class SelezarLogo(pygame.sprite.Sprite):
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
 
-        self.rect.topleft = self.Current_X_position, self.Current_Y_position
+        self.rect.center = self.Current_X_position, self.Current_Y_position
 
     def update(self):
 
