@@ -4,7 +4,7 @@ Author: Selezar
 Maplestory fighter game in the style of Mortal Combat
 '''
 
-import os, pygame
+import pygame
 from pygame.locals import *
 from HelperFunctions import *
 from Characters.Selezar import *
@@ -38,63 +38,53 @@ def main():
 
     print (pygame.key.get_repeat())
 
-#Background variables
-    # bg_Start_x = 0
-    # bg_Start_Y = 0
-
-#Create The Background
-    # bg_image,bg_rect = load_image("b5.jpg", 'Backgrounds')
-    # bg_rect.topleft = bg_Start_x, bg_Start_Y
-
-#Display The Background
-    # screen.fill((0,0,0))
-    # screen.blit(bg_image, bg_rect)
-    # pygame.display.flip()
-
 #Sprite background
     bg = Background(0,0)
-
-
 
 #Set game FPS
     FPS = 30
 
 #Prepare Game Objects
     clock = pygame.time.Clock()
-    jump_sound = load_sound('jump.wav' , 'Jump')
-    #bgm = load_sound('Battle.wav', 'Backgrounds')
-    #sword_sound = load_sound('sword.wav', 'UpperAttack')
-    Running_sound = load_sound('Running.wav', 'Walk')
-    Woman_Breath_sound = load_sound('WomanBreath.wav', 'Oichi')
-
     hand = Hand()
 
-    #selezar = Selezar(1100,730)
+#walls
+    wall_sprite_group = pygame.sprite.Group()
+    my_wall1 = Collision_Line(200,830,2,20)
+    my_wall2 = Collision_Line(900,830,2,20)
+    my_wall3 = Collision_Line(1330,770,2,20)
 
+    wall_sprite_group.add(my_wall1)
+    wall_sprite_group.add(my_wall2)
+    wall_sprite_group.add(my_wall3)
 
-    selezar = MapleChar(600, 785, 'Selezar')
-    selezarP = SelezarPotrait(1440, 130)
-    selezarlogo = SelezarLogo(1000,83)
+#platforms
+    platform_sprite_group = pygame.sprite.OrderedUpdates()
+    platform_ghost_line_sprite_group = pygame.sprite.OrderedUpdates()
 
-    oichi = Oichi()
-    oichiP = OichiPotrait(115,130)
-    oichilogo = OichiLogo(515,86)
+    base_platform = Collision_Line(0, 865, 4000, 2)
+    my_platform1 = Collision_Line(910, 800, 400, 2)
+    my_platform2 = Collision_Line(1340, 750, 400, 2)
     
-    right_hp_bar = Hp_Bar_Right(1000,100)
-    left_hp_bar = Hp_Bar_Left(100,97)
+    base_platform_ghost = Collision_Line(0, 845, 4000, 2)
+    my_platform1_ghost = Collision_Line(910,780,400,2)
+    my_platform2_ghost = Collision_Line(1340, 730, 400, 2)
 
-    tleft = Time_Countdown_Left(816,130, FPS)
-    tright = Time_Countdown_Right(850, 130, FPS)
+    platform_sprite_group.add(base_platform)
+    platform_sprite_group.add(my_platform1)
+    platform_sprite_group.add(my_platform2)
 
-    allsprites = pygame.sprite.LayeredUpdates((bg, selezar, hand, oichi,))
-    #allsprites.add(selezarP)
-    #allsprites.add(selezarlogo)
-    #allsprites.add(right_hp_bar)
-    #allsprites.add(oichiP)
-    #allsprites.add(oichilogo)
-    #allsprites.add(left_hp_bar)
-    #allsprites.add(tleft)
-    #allsprites.add(tright)
+    platform_ghost_line_sprite_group.add(base_platform_ghost)
+    platform_ghost_line_sprite_group.add(my_platform1_ghost)
+    platform_ghost_line_sprite_group.add(my_platform2_ghost)
+
+#player declarations
+    Player = MapleChar(600, 825, 'Selezar')
+    oichi = Oichi()
+
+#Adding to super group which will handle drawing
+
+    allsprites = pygame.sprite.LayeredUpdates((bg, Player, hand, oichi, wall_sprite_group, platform_sprite_group, platform_ghost_line_sprite_group))
 
     
 #Main Loop
@@ -107,11 +97,11 @@ def main():
     #bgm.play()
     while going:
 
-        Current_Side_Character_Is_Facing = selezar.Fetch_Current_Facing_Side()
-        Current_User_Positions = selezar.Fetch_Current_Character_Position()
+        Current_Side_Character_Is_Facing = Player.Fetch_Current_Facing_Side()
+        Current_Player_Positions = Player.Fetch_Current_Character_Position()
 
         clock.tick(FPS)
-        Floor_Bool = selezar.Is_The_Character_On_Floor()
+        Floor_Bool = Player.Is_The_Character_On_Floor()
 
         #Handle Input Events
         for event in pygame.event.get():
@@ -121,55 +111,44 @@ def main():
             elif event.type == KEYDOWN and event.key == K_ESCAPE:
                 going = False
 
-        #-----------------------------USER KEYBOARD EVENTS-------------------#
+        #------------Player KEYBOARD EVENTS-------------------#
 
         #-----------Navigation------------------------------#
             elif event.type==KEYDOWN and event.key==K_DOWN and Floor_Bool==True:
                 Jump_Left_History_Bool = False
                 Jump_Right_History_Bool = False
-                selezar.Update_Animation('Crouch')
+                Player.Update_Animation('Crouch')
             elif event.type==KEYUP and event.key==K_DOWN:
-                selezar.Reset_Y_Position_To_Base()
-                selezar.Update_Animation('Idle')
-
-
+                Player.Reset_Y_Position_To_Base()
+                Player.Update_Animation('Idle')
 
 
             elif event.type==KEYDOWN and event.key==K_LEFT and Floor_Bool==True:
                 '''GOING LEFT'''
-
-                #print ('GOING LEFT')
-                #pygame.key.set_repeat(1,1)
-
-                #print (pygame.key.get_repeat())
                 
-                selezar.Is_Left_Button_Pressed('T')
+                Player.Is_Left_Button_Pressed('T')
                 Jump_Left_History_Bool = False
                 Jump_Right_History_Bool = False
                 Left_Key_Bool = True
-                selezar.Update_Animation_without_resetting_Count('Walk_Left')
 
-                '''animate map going left if character is at left most edge'''
-                if Current_User_Positions[0]<5:
-                    bg.Update_Animation('Move_Right')
-                    oichi.Change_Current_X_Position(12)
+                Player.Update_Animation_without_resetting_Count('Walk_Left')
+
 
             elif event.type==KEYUP and event.key==K_LEFT:
                 
-                selezar.Is_Left_Button_Pressed('F')
+                Player.Is_Left_Button_Pressed('F')
                 Left_Key_Bool = False
 
-                bg.Update_Animation('Idle')
+                #bg.Update_Animation('Idle')
 
-                jbool = selezar.Fetch_State_of_Jump_Button()
+                jbool = Player.Fetch_State_of_Jump_Button()
 
-                if jbool:
+                if jbool==True:
                     '''this is so that when the person lets go of direction buttons mid air the char is smoothly let down'''
-                    selezar.Update_Animation('PrematureJumpEndingLeft')
-                else:
-                    selezar.Update_Animation('Idle')
-
-
+                    Player.Update_Animation('PrematureJumpEndingLeft')
+                elif jbool==False and Left_Key_Bool==False and Floor_Bool==True:
+                    '''when direction button is stopped being pressed character will stand in idle'''
+                    Player.Update_Animation('Idle')
 
 
 
@@ -182,31 +161,32 @@ def main():
 
                # print (pygame.key.get_repeat())
                 
-                selezar.Is_Right_Button_Pressed('T')
+                Player.Is_Right_Button_Pressed('T')
                 Jump_Right_History_Bool = False
                 Jump_Left_History_Bool = False
                 Right_Key_Bool = True
-                selezar.Update_Animation_without_resetting_Count('Walk_Right')
+                Player.Update_Animation_without_resetting_Count('Walk_Right')
 
                 '''animate map going left if character is at right most edge'''
-                if Current_User_Positions[0]>(screen_width-60):
+                if Current_Player_Positions[0]>(screen_width-60):
                     bg.Update_Animation('Move_Left')
                     oichi.Change_Current_X_Position(-12)
 
 
             elif event.type==KEYUP and event.key==K_RIGHT:
 
-                selezar.Is_Right_Button_Pressed('F')
+                Player.Is_Right_Button_Pressed('F')
                 Right_Key_Bool = False
-                jbool = selezar.Fetch_State_of_Jump_Button()
+                jbool = Player.Fetch_State_of_Jump_Button()
 
                 bg.Update_Animation('Idle')
 
-                if jbool:
+                if jbool==True:
                     '''this is so that when the person lets go of direction buttons mid air the char is smoothly let down'''
-                    selezar.Update_Animation('PrematureJumpEndingRight')
-                else:
-                    selezar.Update_Animation('Idle')
+                    Player.Update_Animation('PrematureJumpEndingRight')
+                elif jbool==False and Right_Key_Bool==False and Floor_Bool==True:
+                    '''when direction button is stopped being pressed character will stand in idle'''
+                    Player.Update_Animation('Idle')
 
         #-----------Attack Section--------------------------#
 
@@ -216,8 +196,8 @@ def main():
                 #sword_sound.play()
                 Jump_Right_History_Bool = False
                 Jump_Left_History_Bool = False
-                selezar.Update_Animation('SpinAttack')
-                Cur_POS = selezar.Fetch_Current_Character_Position()
+                Player.Update_Animation('SpinAttack')
+                Cur_POS = Player.Fetch_Current_Character_Position()
                 bfury = BladeFury(Cur_POS[0], Cur_POS[1])
                 allsprites.add(bfury)
 
@@ -225,8 +205,8 @@ def main():
 
                 #sword_sound.fadeout(5)
                 allsprites.remove(bfury)
-                selezar.Reset_Y_Position_To_Base()
-                selezar.Update_Animation('Alert')
+                Player.Reset_Y_Position_To_Base()
+                Player.Update_Animation('Alert')
 
             elif event.type==KEYDOWN and event.key==K_LSHIFT and Floor_Bool==True:
 
@@ -234,8 +214,8 @@ def main():
                 #sword_sound.play()
                 Jump_Right_History_Bool = False
                 Jump_Left_History_Bool = False
-                selezar.Update_Animation('SpinAttack')
-                Cur_POS = selezar.Fetch_Current_Character_Position()
+                Player.Update_Animation('SpinAttack')
+                Cur_POS = Player.Fetch_Current_Character_Position()
                 pblow = PhantomBlow(Cur_POS[0], Cur_POS[1], Current_Side_Character_Is_Facing)
                 allsprites.add(pblow)
 
@@ -243,8 +223,8 @@ def main():
 
                 #sword_sound.fadeout(5)
                 allsprites.remove(pblow)
-                selezar.Reset_Y_Position_To_Base()
-                selezar.Update_Animation('Alert')
+                Player.Reset_Y_Position_To_Base()
+                Player.Update_Animation('Alert')
 
             elif event.type==KEYDOWN and event.key==K_b and Floor_Bool==True:
 
@@ -252,93 +232,78 @@ def main():
                 #sword_sound.play()
                 Jump_Right_History_Bool = False
                 Jump_Left_History_Bool = False
-                selezar.Update_Animation('SpinAttack')
+                Player.Update_Animation('SpinAttack')
 
             elif event.type==KEYUP and event.key==K_b:
 
-                selezar.Reset_Y_Position_To_Base()
-                selezar.Update_Animation('Alert')
+                Player.Reset_Y_Position_To_Base()
+                Player.Update_Animation('Alert')
+
         #-----------JUMP SECTION----------------------------#
 
             elif event.type==KEYDOWN and event.key==K_x and Left_Key_Bool==False and Right_Key_Bool==False and Floor_Bool==True:
                 print ('jump straight up')
                 Jump_Left_History_Bool = False
                 Jump_Right_History_Bool = False
-                selezar.Update_Animation_without_resetting_Count('JumpStraightUp')
-                jump_sound.play()
+                Player.Update_Animation_without_resetting_Count('JumpStraightUp')
+                #jump_sound.play()
             elif event.type==KEYUP and event.key==K_x and Jump_Left_History_Bool==False and Jump_Right_History_Bool==False:
-                selezar.Update_Animation('PrematureJumpEnding')
+                Player.Update_Animation('PrematureJumpEnding')
 
             elif event.type==KEYDOWN and event.key==K_x and Left_Key_Bool==True and Floor_Bool==True:
                 print ('jump left')
-                selezar.Is_Jump_Button_Pressed('T')
-                selezar.Update_Animation_without_resetting_Count('JumpLeft')
+                Player.Is_Jump_Button_Pressed('T')
+                Player.Update_Animation_without_resetting_Count('JumpLeft')
                 Jump_Left_History_Bool = True
-                jump_sound.play()
+                #jump_sound.play()
             elif event.type==KEYUP and event.key==K_x and Jump_Left_History_Bool==True:
-                selezar.Is_Jump_Button_Pressed('F')
-                selezar.Update_Animation('PrematureJumpEndingLeft')
+                Player.Is_Jump_Button_Pressed('F')
+                Player.Update_Animation('PrematureJumpEndingLeft')
 
             elif event.type==KEYDOWN and event.key==K_x and Right_Key_Bool==True and Floor_Bool==True:
                 print ('jump right')
-                selezar.Is_Jump_Button_Pressed('T')
-                selezar.Update_Animation_without_resetting_Count('JumpRight')
+                Player.Is_Jump_Button_Pressed('T')
+                Player.Update_Animation_without_resetting_Count('JumpRight')
                 Jump_Right_History_Bool = True
-                jump_sound.play()
+                #jump_sound.play()
             elif event.type==KEYUP and event.key==K_x and Jump_Right_History_Bool==True:
-                selezar.Is_Jump_Button_Pressed('F')
-                selezar.Update_Animation('PrematureJumpEndingRight')
-
-
-
-
+                Player.Is_Jump_Button_Pressed('F')
+                Player.Update_Animation('PrematureJumpEndingRight')
 
 
 
         #------------Oichi-----------------------------------#
             elif event.type==KEYDOWN and event.key==K_p:
-                Running_sound.play()
-                Woman_Breath_sound.play()
                 oichi.Update_Facing_Side('Left')
                 oichi.Update_Animation('Walk')
             elif event.type==KEYUP and event.key==K_p:
-                Running_sound.fadeout(10)
-                Woman_Breath_sound.fadeout(10)
                 oichi.Update_Animation('Idle')
 
             elif event.type==KEYDOWN and event.key==K_i:
-                Running_sound.play()
-                Woman_Breath_sound.play()
                 oichi.Update_Facing_Side('Right')
                 oichi.Update_Animation('Walk')
             elif event.type==KEYUP and event.key==K_i:
-                Running_sound.fadeout(10)
-                Woman_Breath_sound.fadeout(10)
                 oichi.Update_Animation('Idle')
 
             elif event.type==KEYDOWN and event.key==K_9:
-                Woman_Breath_sound.play()
                 oichi.Update_Animation('JumpStraightUp')
             elif event.type==KEYUP and event.key==K_9:
-                Woman_Breath_sound.fadeout(10)
                 oichi.Update_Animation('Walk')
 
-
-        # if pygame.sprite.collide_rect(selezar, oichi)==1:
-        #     print ('COLLIDED')
-        # else:
-        #     print ('Not collided')
-
+        allsprites.remove(Player)
+        Player.update(wall_sprite_group, platform_sprite_group, platform_ghost_line_sprite_group)
         allsprites.update()
+        allsprites.add(Player)
+        allsprites.move_to_back(Player)
+        allsprites.move_to_back(bg)
 
         #Draw Everything
-        #screen.blit(bg_image, bg_rect)
+
         allsprites.draw(screen)
         pygame.display.flip()
 
     pygame.quit()
 
-#Game Over
 
 
 
